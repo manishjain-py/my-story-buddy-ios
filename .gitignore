@@ -1,0 +1,36 @@
+# Xcode
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/*.xcworkspace
+!*.xcodeproj/*.xcworkspace/*
+
+# User settings
+*.xcuserdata/
+*.xcuserdatad/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Build products
+DerivedData/
+*.ipa
+*.app
+
+# Swift Package Manager
+.build/
+Packages/
+Package.pins
+Package.resolved
+
+# Cocoapods
+Pods/
+*.xcworkspace
+!default.xcworkspace
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
