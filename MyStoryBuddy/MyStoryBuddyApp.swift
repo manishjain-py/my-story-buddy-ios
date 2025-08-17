@@ -2801,18 +2801,49 @@ struct ComicStoryView: View {
                         let availableHeight = fullGeometry.size.height - safeArea.top - safeArea.bottom - headerHeight - 40
                         
                         ScrollView([.horizontal, .vertical], showsIndicators: false) {
-                            Image(uiImage: currentImage)
-                                .resizable()
-                                .aspectRatio(contentMode: .fit)
+                            ZStack {
+                                Image(uiImage: currentImage)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(
+                                        width: imageSize.width,
+                                        height: imageSize.height
+                                    )
+                                    .clipped()
+                                    .opacity(isLoadingCurrentImage ? 0.3 : 1.0)
+                                
+                                // Overlay invisible tap zones for navigation
+                                HStack(spacing: 0) {
+                                    // Left tap zone (previous page)
+                                    Rectangle()
+                                        .fill(Color.clear)
+                                        .frame(width: imageSize.width * 0.3)
+                                        .onTapGesture {
+                                            if currentPage > 0 {
+                                                goToPreviousPage()
+                                            }
+                                        }
+                                    
+                                    // Center zone (no action to prevent accidental navigation)
+                                    Rectangle()
+                                        .fill(Color.clear)
+                                        .frame(width: imageSize.width * 0.4)
+                                    
+                                    // Right tap zone (next page)
+                                    Rectangle()
+                                        .fill(Color.clear)
+                                        .frame(width: imageSize.width * 0.3)
+                                        .onTapGesture {
+                                            if currentPage < imageUrls.count - 1 {
+                                                advanceToNextPage()
+                                            }
+                                        }
+                                }
                                 .frame(
                                     width: imageSize.width,
                                     height: imageSize.height
                                 )
-                                .clipped()
-                                .onTapGesture {
-                                    advanceToNextPage()
-                                }
-                                .opacity(isLoadingCurrentImage ? 0.3 : 1.0)
+                            }
                         }
                         .frame(
                             maxWidth: max(availableWidth, 100),
@@ -2841,12 +2872,17 @@ struct ComicStoryView: View {
         .gesture(
             DragGesture()
                 .onEnded { value in
-                    // Swipe left to go to next page
-                    if value.translation.width < -50 && currentPage < imageUrls.count - 1 {
+                    let swipeThreshold: CGFloat = 30 // Reduced threshold for more responsive swipes
+                    let velocityThreshold: CGFloat = 200 // Consider velocity for quick swipes
+                    
+                    // Swipe left to go to next page (more responsive)
+                    if (value.translation.width < -swipeThreshold || value.predictedEndTranslation.width < -velocityThreshold) 
+                        && currentPage < imageUrls.count - 1 {
                         advanceToNextPage()
                     }
-                    // Swipe right to go to previous page
-                    else if value.translation.width > 50 && currentPage > 0 {
+                    // Swipe right to go to previous page (more responsive)
+                    else if (value.translation.width > swipeThreshold || value.predictedEndTranslation.width > velocityThreshold) 
+                        && currentPage > 0 {
                         goToPreviousPage()
                     }
                 }
@@ -2855,7 +2891,7 @@ struct ComicStoryView: View {
     
     private func advanceToNextPage() {
         if currentPage < imageUrls.count - 1 {
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(.easeInOut(duration: 0.3)) {
                 currentPage += 1
             }
         }
@@ -2863,7 +2899,7 @@ struct ComicStoryView: View {
     
     private func goToPreviousPage() {
         if currentPage > 0 {
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(.easeInOut(duration: 0.3)) {
                 currentPage -= 1
             }
         }
