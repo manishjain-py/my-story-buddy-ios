@@ -46,10 +46,14 @@ struct SignupRequest: Codable {
 
 struct AuthResponse: Codable {
     let accessToken: String
+    let tokenType: String
+    let expiresIn: Int
     let user: User
     
     enum CodingKeys: String, CodingKey {
         case accessToken = "access_token"
+        case tokenType = "token_type"
+        case expiresIn = "expires_in"
         case user
     }
 }
@@ -259,7 +263,7 @@ class AuthService: ObservableObject {
         let (data, response) = try await session.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
+              httpResponse.statusCode == 201 else {
             throw AuthError.invalidResponse
         }
         
@@ -1334,6 +1338,8 @@ struct ContentView: View {
                 viewModel: viewModel,
                 showLoginModal: $showLoginModal,
                 showSignupModal: $showSignupModal,
+                showTextModal: $showTextModal,
+                showComicModal: $showComicModal,
                 isPresented: $showHamburgerMenu
             )
         }
@@ -2343,9 +2349,14 @@ struct HamburgerMenuView: View {
     @ObservedObject var viewModel: StoryViewModel
     @Binding var showLoginModal: Bool
     @Binding var showSignupModal: Bool
+    @Binding var showTextModal: Bool
+    @Binding var showComicModal: Bool
     @Binding var isPresented: Bool
     @State private var showDeleteConfirmation = false
     @State private var isDeleting = false
+    @State private var deleteError: String = ""
+    @State private var showDeleteError = false
+    @State private var showDeleteSuccess = false
     
     var body: some View {
         NavigationView {
@@ -2382,8 +2393,18 @@ struct HamburgerMenuView: View {
                             
                             Spacer()
                             
-                            Button("Delete Account") {
+                            Button(action: {
                                 showDeleteConfirmation = true
+                            }) {
+                                HStack {
+                                    if isDeleting {
+                                        ProgressView()
+                                            .scaleEffect(0.8)
+                                        Text("Deleting...")
+                                    } else {
+                                        Text("Delete Account")
+                                    }
+                                }
                             }
                             .foregroundColor(.red)
                             .font(.system(size: 14))
@@ -2428,6 +2449,13 @@ struct HamburgerMenuView: View {
                         title: "Home",
                         isActive: navigationManager.currentPage == .home,
                         action: {
+                            // Close ALL modals to ensure we get back to main home page
+                            showTextModal = false
+                            showComicModal = false
+                            showLoginModal = false
+                            showSignupModal = false
+                            viewModel.showFunFactsModal = false
+                            
                             // Only reset if we're not already on home page and not in story completion process
                             // This preserves the story when user is on home page viewing results
                             if navigationManager.currentPage != .home && !viewModel.isCompletingStory {
@@ -2481,6 +2509,44 @@ struct HamburgerMenuView: View {
             } message: {
                 Text("Are you sure you want to permanently delete your account?\n\nThis will immediately and permanently remove:\n• All your generated stories\n• Your avatar and personalization settings\n• Your account profile and login information\n• All associated data\n\nThis action cannot be undone.")
             }
+            .alert("Account Deleted", isPresented: $showDeleteSuccess) {
+                Button("OK") {
+                    // Close ALL modals FIRST, then logout
+                    DispatchQueue.main.async {
+                        // Close story view modals first
+                        showTextModal = false
+                        showComicModal = false
+                        // Close auth modals
+                        showLoginModal = false
+                        showSignupModal = false
+                        // Close hamburger menu
+                        isPresented = false
+                        // Close any viewModel modals
+                        viewModel.showFunFactsModal = false
+                        
+                        // Clear story state to ensure clean home page
+                        viewModel.story = ""
+                        viewModel.title = ""
+                        viewModel.imageUrls = []
+                        
+                        // Then logout after a brief delay to allow UI updates
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            Task {
+                                await authViewModel.logout()
+                            }
+                        }
+                    }
+                }
+            } message: {
+                Text("Your account has been permanently deleted. All data has been removed and cannot be recovered.")
+            }
+            .alert("Deletion Failed", isPresented: $showDeleteError) {
+                Button("OK") {
+                    showDeleteError = false
+                }
+            } message: {
+                Text(deleteError)
+            }
         }
     }
     
@@ -2494,44 +2560,18 @@ struct HamburgerMenuView: View {
         do {
             try await AuthService.shared.deleteAccount(token: token)
             
-            // Account deleted successfully - logout user
+            // Account deleted successfully - show success message
             DispatchQueue.main.async {
-                Task {
-                    await self.authViewModel.logout()
-                }
-                self.isPresented = false
-                
-                // Show success message
-                let alert = UIAlertController(
-                    title: "Account Deleted",
-                    message: "Your account has been permanently deleted. All data has been removed and cannot be recovered.",
-                    preferredStyle: .alert
-                )
-                alert.addAction(UIAlertAction(title: "OK", style: .default))
-                
-                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                   let window = windowScene.windows.first,
-                   let rootViewController = window.rootViewController {
-                    rootViewController.present(alert, animated: true)
-                }
+                self.isDeleting = false
+                self.showDeleteSuccess = true
+                self.showDeleteConfirmation = false
             }
         } catch {
             DispatchQueue.main.async {
                 self.isDeleting = false
-                
-                // Show error message
-                let alert = UIAlertController(
-                    title: "Deletion Failed",
-                    message: "Failed to delete account: \(error.localizedDescription). Please try again or contact support.",
-                    preferredStyle: .alert
-                )
-                alert.addAction(UIAlertAction(title: "OK", style: .default))
-                
-                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-                   let window = windowScene.windows.first,
-                   let rootViewController = window.rootViewController {
-                    rootViewController.present(alert, animated: true)
-                }
+                self.deleteError = "Failed to delete account: \(error.localizedDescription). Please try again or contact support."
+                self.showDeleteError = true
+                self.showDeleteConfirmation = false
             }
         }
     }
@@ -2660,8 +2700,41 @@ struct SignupModalView: View {
     
     @State private var email = ""
     @State private var password = ""
+    @State private var confirmPassword = ""
     @State private var firstName = ""
     @State private var lastName = ""
+    @State private var showPassword = false
+    @State private var showConfirmPassword = false
+    @State private var validationError = ""
+    
+    // Password validation computed properties
+    private var passwordChecks: (length: Bool, lowercase: Bool, uppercase: Bool, number: Bool) {
+        let length = password.count >= 8
+        let lowercase = password.contains { $0.isLowercase }
+        let uppercase = password.contains { $0.isUppercase }
+        let number = password.contains { $0.isNumber }
+        return (length, lowercase, uppercase, number)
+    }
+    
+    private var passwordStrength: Int {
+        let checks = passwordChecks
+        return [checks.length, checks.lowercase, checks.uppercase, checks.number].compactMap { $0 ? 1 : nil }.count
+    }
+    
+    private var passwordsMatch: Bool {
+        return password == confirmPassword && !confirmPassword.isEmpty
+    }
+    
+    private var isFormValid: Bool {
+        return !firstName.isEmpty && 
+               !lastName.isEmpty && 
+               !email.isEmpty && 
+               passwordChecks.length && 
+               passwordChecks.lowercase && 
+               passwordChecks.uppercase && 
+               passwordChecks.number && 
+               passwordsMatch
+    }
     
     var body: some View {
         NavigationView {
@@ -2671,19 +2744,158 @@ struct SignupModalView: View {
                     .bold()
                 
                 VStack(spacing: 16) {
-                    TextField("First Name", text: $firstName)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
-                    
-                    TextField("Last Name", text: $lastName)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                    HStack(spacing: 12) {
+                        TextField("First Name", text: $firstName)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                        
+                        TextField("Last Name", text: $lastName)
+                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                    }
                     
                     TextField("Email", text: $email)
                         .textFieldStyle(RoundedBorderTextFieldStyle())
                         .keyboardType(.emailAddress)
                         .autocapitalization(.none)
                     
-                    SecureField("Password", text: $password)
-                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                    // Password Field with Toggle
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            if showPassword {
+                                TextField("Password", text: $password)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                            } else {
+                                SecureField("Password", text: $password)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                            }
+                            
+                            Button(action: { showPassword.toggle() }) {
+                                Image(systemName: showPassword ? "eye.slash" : "eye")
+                                    .foregroundColor(.gray)
+                            }
+                            .padding(.trailing, 8)
+                        }
+                        
+                        // Password Requirements
+                        if !password.isEmpty {
+                            VStack(alignment: .leading, spacing: 6) {
+                                // Password Strength Bar
+                                HStack {
+                                    Text("Password Strength: ")
+                                        .font(.caption)
+                                        .foregroundColor(.gray)
+                                    
+                                    Text(passwordStrength < 2 ? "Weak" : passwordStrength < 4 ? "Good" : "Strong")
+                                        .font(.caption)
+                                        .foregroundColor(passwordStrength < 2 ? .red : passwordStrength < 4 ? .orange : .green)
+                                        .fontWeight(.semibold)
+                                }
+                                
+                                // Progress Bar
+                                GeometryReader { geometry in
+                                    ZStack(alignment: .leading) {
+                                        Rectangle()
+                                            .frame(width: geometry.size.width, height: 4)
+                                            .opacity(0.3)
+                                            .foregroundColor(.gray)
+                                        
+                                        Rectangle()
+                                            .frame(width: min(CGFloat(passwordStrength) / 4.0 * geometry.size.width, geometry.size.width), height: 4)
+                                            .foregroundColor(passwordStrength < 2 ? .red : passwordStrength < 4 ? .orange : .green)
+                                            .animation(.linear(duration: 0.2), value: passwordStrength)
+                                    }
+                                }
+                                .frame(height: 4)
+                                
+                                // Password Checklist
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            HStack {
+                                                Image(systemName: passwordChecks.length ? "checkmark.circle.fill" : "circle")
+                                                    .foregroundColor(passwordChecks.length ? .green : .gray)
+                                                    .font(.caption)
+                                                Text("At least 8 characters")
+                                                    .font(.caption)
+                                                    .foregroundColor(passwordChecks.length ? .green : .gray)
+                                            }
+                                            
+                                            HStack {
+                                                Image(systemName: passwordChecks.lowercase ? "checkmark.circle.fill" : "circle")
+                                                    .foregroundColor(passwordChecks.lowercase ? .green : .gray)
+                                                    .font(.caption)
+                                                Text("One lowercase letter")
+                                                    .font(.caption)
+                                                    .foregroundColor(passwordChecks.lowercase ? .green : .gray)
+                                            }
+                                        }
+                                        
+                                        Spacer()
+                                        
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            HStack {
+                                                Image(systemName: passwordChecks.uppercase ? "checkmark.circle.fill" : "circle")
+                                                    .foregroundColor(passwordChecks.uppercase ? .green : .gray)
+                                                    .font(.caption)
+                                                Text("One uppercase letter")
+                                                    .font(.caption)
+                                                    .foregroundColor(passwordChecks.uppercase ? .green : .gray)
+                                            }
+                                            
+                                            HStack {
+                                                Image(systemName: passwordChecks.number ? "checkmark.circle.fill" : "circle")
+                                                    .foregroundColor(passwordChecks.number ? .green : .gray)
+                                                    .font(.caption)
+                                                Text("One number")
+                                                    .font(.caption)
+                                                    .foregroundColor(passwordChecks.number ? .green : .gray)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(12)
+                            .background(Color.gray.opacity(0.1))
+                            .cornerRadius(8)
+                        }
+                    }
+                    
+                    // Confirm Password Field
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            if showConfirmPassword {
+                                TextField("Confirm Password", text: $confirmPassword)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                            } else {
+                                SecureField("Confirm Password", text: $confirmPassword)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                            }
+                            
+                            Button(action: { showConfirmPassword.toggle() }) {
+                                Image(systemName: showConfirmPassword ? "eye.slash" : "eye")
+                                    .foregroundColor(.gray)
+                            }
+                            .padding(.trailing, 8)
+                        }
+                        
+                        // Password Match Indicator
+                        if !confirmPassword.isEmpty {
+                            HStack {
+                                Image(systemName: passwordsMatch ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                    .foregroundColor(passwordsMatch ? .green : .red)
+                                    .font(.caption)
+                                Text(passwordsMatch ? "Passwords match" : "Passwords do not match")
+                                    .font(.caption)
+                                    .foregroundColor(passwordsMatch ? .green : .red)
+                            }
+                        }
+                    }
+                }
+                
+                // Show validation errors or auth errors
+                if !validationError.isEmpty {
+                    Text(validationError)
+                        .foregroundColor(.red)
+                        .font(.caption)
                 }
                 
                 if !authViewModel.error.isEmpty {
@@ -2693,6 +2905,27 @@ struct SignupModalView: View {
                 }
                 
                 Button("Create Account") {
+                    // Clear previous validation errors
+                    validationError = ""
+                    
+                    // Validate form
+                    if !isFormValid {
+                        if password != confirmPassword {
+                            validationError = "Passwords do not match"
+                        } else if !passwordChecks.length {
+                            validationError = "Password must be at least 8 characters"
+                        } else if !passwordChecks.lowercase {
+                            validationError = "Password must contain a lowercase letter"
+                        } else if !passwordChecks.uppercase {
+                            validationError = "Password must contain an uppercase letter"
+                        } else if !passwordChecks.number {
+                            validationError = "Password must contain a number"
+                        } else {
+                            validationError = "Please fill in all fields"
+                        }
+                        return
+                    }
+                    
                     Task {
                         await authViewModel.signup(email: email, password: password, firstName: firstName, lastName: lastName)
                         if authViewModel.isAuthenticated {
@@ -2704,9 +2937,9 @@ struct SignupModalView: View {
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color.blue)
+                .background(isFormValid && !authViewModel.loading ? Color.blue : Color.gray)
                 .cornerRadius(10)
-                .disabled(authViewModel.loading || email.isEmpty || password.isEmpty || firstName.isEmpty || lastName.isEmpty)
+                .disabled(!isFormValid || authViewModel.loading)
                 
                 
                 HStack {
