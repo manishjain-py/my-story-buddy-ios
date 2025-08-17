@@ -316,6 +316,28 @@ class AuthService: ObservableObject {
         }
     }
     
+    func deleteAccount(token: String) async throws {
+        guard let url = URL(string: "\(baseURL)/auth/delete-account") else {
+            throw AuthError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        
+        let (data, response) = try await session.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw AuthError.invalidResponse
+        }
+        
+        guard httpResponse.statusCode == 200 else {
+            let errorMessage = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw AuthError.networkError("Account deletion failed (\(httpResponse.statusCode)): \(errorMessage)")
+        }
+    }
+    
 }
 
 // MARK: - Story Service
@@ -1352,7 +1374,7 @@ struct ContentView: View {
                 }
             }
         }
-        .onChange(of: authViewModel.isAuthenticated) { isAuthenticated in
+        .onChange(of: authViewModel.isAuthenticated) { _, isAuthenticated in
             if isAuthenticated, let token = authViewModel.token {
                 Task {
                     await fetchNotificationCounts(token: token)
@@ -2322,6 +2344,8 @@ struct HamburgerMenuView: View {
     @Binding var showLoginModal: Bool
     @Binding var showSignupModal: Bool
     @Binding var isPresented: Bool
+    @State private var showDeleteConfirmation = false
+    @State private var isDeleting = false
     
     var body: some View {
         NavigationView {
@@ -2347,13 +2371,24 @@ struct HamburgerMenuView: View {
                             .font(.headline)
                             .padding(.horizontal)
                         
-                        Button("Sign Out") {
-                            Task {
-                                await authViewModel.logout()
+                        HStack {
+                            Button("Sign Out") {
+                                Task {
+                                    await authViewModel.logout()
+                                }
+                                isPresented = false
                             }
-                            isPresented = false
+                            .foregroundColor(.red)
+                            
+                            Spacer()
+                            
+                            Button("Delete Account") {
+                                showDeleteConfirmation = true
+                            }
+                            .foregroundColor(.red)
+                            .font(.system(size: 14))
+                            .disabled(isDeleting)
                         }
-                        .foregroundColor(.red)
                         .padding(.horizontal)
                     }
                 } else {
@@ -2434,6 +2469,70 @@ struct HamburgerMenuView: View {
                 Spacer()
             }
             .navigationBarHidden(true)
+            .alert("Delete Account", isPresented: $showDeleteConfirmation) {
+                Button("Cancel", role: .cancel) {
+                    showDeleteConfirmation = false
+                }
+                Button("Delete Account", role: .destructive) {
+                    Task {
+                        await deleteAccountConfirmed()
+                    }
+                }
+            } message: {
+                Text("Are you sure you want to permanently delete your account?\n\nThis will immediately and permanently remove:\n• All your generated stories\n• Your avatar and personalization settings\n• Your account profile and login information\n• All associated data\n\nThis action cannot be undone.")
+            }
+        }
+    }
+    
+    private func deleteAccountConfirmed() async {
+        guard let token = authViewModel.token else {
+            return
+        }
+        
+        isDeleting = true
+        
+        do {
+            try await AuthService.shared.deleteAccount(token: token)
+            
+            // Account deleted successfully - logout user
+            DispatchQueue.main.async {
+                Task {
+                    await self.authViewModel.logout()
+                }
+                self.isPresented = false
+                
+                // Show success message
+                let alert = UIAlertController(
+                    title: "Account Deleted",
+                    message: "Your account has been permanently deleted. All data has been removed and cannot be recovered.",
+                    preferredStyle: .alert
+                )
+                alert.addAction(UIAlertAction(title: "OK", style: .default))
+                
+                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                   let window = windowScene.windows.first,
+                   let rootViewController = window.rootViewController {
+                    rootViewController.present(alert, animated: true)
+                }
+            }
+        } catch {
+            DispatchQueue.main.async {
+                self.isDeleting = false
+                
+                // Show error message
+                let alert = UIAlertController(
+                    title: "Deletion Failed",
+                    message: "Failed to delete account: \(error.localizedDescription). Please try again or contact support.",
+                    preferredStyle: .alert
+                )
+                alert.addAction(UIAlertAction(title: "OK", style: .default))
+                
+                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                   let window = windowScene.windows.first,
+                   let rootViewController = window.rootViewController {
+                    rootViewController.present(alert, animated: true)
+                }
+            }
         }
     }
 }
