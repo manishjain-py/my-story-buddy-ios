@@ -2758,14 +2758,41 @@ struct ComicStoryView: View {
                         
                         Spacer()
                         
-                        // Page indicator (matches React implementation)
-                        Text("\(currentPage + 1)/\(imageUrls.count)")
-                            .font(.headline)
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(Color.black.opacity(0.7))
-                            .cornerRadius(20)
+                        // Navigation controls with page indicator
+                        HStack(spacing: 16) {
+                            // Previous page button
+                            Button(action: { goToPreviousPage() }) {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .frame(width: 32, height: 32)
+                                    .background(Color.black.opacity(0.7))
+                                    .clipShape(Circle())
+                            }
+                            .disabled(currentPage == 0)
+                            .opacity(currentPage == 0 ? 0.5 : 1.0)
+                            
+                            // Page indicator
+                            Text("\(currentPage + 1)/\(imageUrls.count)")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(Color.black.opacity(0.7))
+                                .cornerRadius(20)
+                            
+                            // Next page button
+                            Button(action: { advanceToNextPage() }) {
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 18, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .frame(width: 32, height: 32)
+                                    .background(Color.black.opacity(0.7))
+                                    .clipShape(Circle())
+                            }
+                            .disabled(currentPage == imageUrls.count - 1)
+                            .opacity(currentPage == imageUrls.count - 1 ? 0.5 : 1.0)
+                        }
                         
                         Spacer()
                         
@@ -2801,49 +2828,15 @@ struct ComicStoryView: View {
                         let availableHeight = fullGeometry.size.height - safeArea.top - safeArea.bottom - headerHeight - 40
                         
                         ScrollView([.horizontal, .vertical], showsIndicators: false) {
-                            ZStack {
-                                Image(uiImage: currentImage)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                                    .frame(
-                                        width: imageSize.width,
-                                        height: imageSize.height
-                                    )
-                                    .clipped()
-                                    .opacity(isLoadingCurrentImage ? 0.3 : 1.0)
-                                
-                                // Overlay invisible tap zones for navigation
-                                HStack(spacing: 0) {
-                                    // Left tap zone (previous page)
-                                    Rectangle()
-                                        .fill(Color.clear)
-                                        .frame(width: imageSize.width * 0.3)
-                                        .onTapGesture {
-                                            if currentPage > 0 {
-                                                goToPreviousPage()
-                                            }
-                                        }
-                                    
-                                    // Center zone (no action to prevent accidental navigation)
-                                    Rectangle()
-                                        .fill(Color.clear)
-                                        .frame(width: imageSize.width * 0.4)
-                                    
-                                    // Right tap zone (next page)
-                                    Rectangle()
-                                        .fill(Color.clear)
-                                        .frame(width: imageSize.width * 0.3)
-                                        .onTapGesture {
-                                            if currentPage < imageUrls.count - 1 {
-                                                advanceToNextPage()
-                                            }
-                                        }
-                                }
+                            Image(uiImage: currentImage)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
                                 .frame(
                                     width: imageSize.width,
                                     height: imageSize.height
                                 )
-                            }
+                                .clipped()
+                                .opacity(isLoadingCurrentImage ? 0.3 : 1.0)
                         }
                         .frame(
                             maxWidth: max(availableWidth, 100),
@@ -2869,24 +2862,6 @@ struct ComicStoryView: View {
                 await preloadAdjacentImages()
             }
         }
-        .gesture(
-            DragGesture()
-                .onEnded { value in
-                    let swipeThreshold: CGFloat = 30 // Reduced threshold for more responsive swipes
-                    let velocityThreshold: CGFloat = 200 // Consider velocity for quick swipes
-                    
-                    // Swipe left to go to next page (more responsive)
-                    if (value.translation.width < -swipeThreshold || value.predictedEndTranslation.width < -velocityThreshold) 
-                        && currentPage < imageUrls.count - 1 {
-                        advanceToNextPage()
-                    }
-                    // Swipe right to go to previous page (more responsive)
-                    else if (value.translation.width > swipeThreshold || value.predictedEndTranslation.width > velocityThreshold) 
-                        && currentPage > 0 {
-                        goToPreviousPage()
-                    }
-                }
-        )
     }
     
     private func advanceToNextPage() {
