@@ -1721,9 +1721,10 @@ struct StoryViewerPageView: View {
                     .font(.system(size: 24, weight: .bold))
                     .multilineTextAlignment(.center)
                 
-                Text("Created \(formatDate(story.createdAt))")
-                    .font(.system(size: 14))
-                    .foregroundColor(.gray)
+                // Created date hidden for cleaner UI
+                // Text("Created \(formatDate(story.createdAt))")
+                //     .font(.system(size: 14))
+                //     .foregroundColor(.gray)
                 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Original Prompt")
@@ -1898,9 +1899,10 @@ struct PersonalizationPageView: View {
                             .foregroundColor(.gray)
                             .multilineTextAlignment(.center)
                         
-                        Text("Created: \(viewModel.formatDate(avatar.createdAt))")
-                            .font(.system(size: 12))
-                            .foregroundColor(.gray)
+                        // Created date hidden for cleaner UI
+                        // Text("Created: \(viewModel.formatDate(avatar.createdAt))")
+                        //     .font(.system(size: 12))
+                        //     .foregroundColor(.gray)
                     }
                     
                     HStack(spacing: 16) {
@@ -2102,9 +2104,10 @@ struct StoryCardView: View {
                             .foregroundColor(.primary)
                             .multilineTextAlignment(.leading)
                         
-                        Text(formatDate(story.createdAt))
-                            .font(.system(size: 12))
-                            .foregroundColor(.gray)
+                        // Created date hidden for cleaner UI
+                        // Text(formatDate(story.createdAt))
+                        //     .font(.system(size: 12))
+                        //     .foregroundColor(.gray)
                     }
                     
                     Spacer()
