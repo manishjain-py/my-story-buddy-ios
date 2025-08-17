@@ -1428,7 +1428,6 @@ struct HomePageView: View {
                         TextEditor(text: $viewModel.description)
                             .frame(minHeight: 120)
                             .padding(20)
-                            .padding(.trailing, 40)
                             .background(Color.gray.opacity(0.05))
                             .cornerRadius(16)
                             .overlay(
@@ -1446,21 +1445,6 @@ struct HomePageView: View {
                                 .allowsHitTesting(false)
                         }
                         
-                        HStack(spacing: 8) {
-                            Button(action: {}) {
-                                Image(systemName: "paperclip")
-                                    .font(.system(size: 20))
-                                    .foregroundColor(.gray)
-                            }
-                            
-                            Button(action: {}) {
-                                Image(systemName: "mic")
-                                    .font(.system(size: 20))
-                                    .foregroundColor(.gray)
-                            }
-                        }
-                        .padding(.bottom, 16)
-                        .padding(.trailing, 16)
                     }
                 }
                 
