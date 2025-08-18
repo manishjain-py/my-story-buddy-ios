@@ -9,6 +9,88 @@ struct MyStoryBuddyApp: App {
     }
 }
 
+// MARK: - Theme System for Dark Mode Support
+
+struct AppTheme {
+    // Background colors
+    static var primaryBackground: Color {
+        Color(UIColor.systemBackground)
+    }
+    
+    static var secondaryBackground: Color {
+        Color(UIColor.secondarySystemBackground)
+    }
+    
+    static var tertiaryBackground: Color {
+        Color(UIColor.tertiarySystemBackground)
+    }
+    
+    static var cardBackground: Color {
+        Color(UIColor.systemBackground)
+    }
+    
+    // Text colors
+    static var primaryText: Color {
+        Color(UIColor.label)
+    }
+    
+    static var secondaryText: Color {
+        Color(UIColor.secondaryLabel)
+    }
+    
+    static var tertiaryText: Color {
+        Color(UIColor.tertiaryLabel)
+    }
+    
+    // Border and separator colors
+    static var separator: Color {
+        Color(UIColor.separator)
+    }
+    
+    static var border: Color {
+        Color(UIColor.separator)
+    }
+    
+    // Button and interactive colors
+    static var accentColor: Color {
+        Color.accentColor
+    }
+    
+    static var buttonBackground: Color {
+        Color(UIColor.systemFill)
+    }
+    
+    static var destructiveColor: Color {
+        Color(UIColor.systemRed)
+    }
+    
+    static var successColor: Color {
+        Color(UIColor.systemGreen)
+    }
+    
+    static var warningColor: Color {
+        Color(UIColor.systemOrange)
+    }
+    
+    // Input field colors
+    static var inputBackground: Color {
+        Color(UIColor.systemGray6)
+    }
+    
+    static var inputBorder: Color {
+        Color(UIColor.systemGray4)
+    }
+    
+    // Modal and overlay colors
+    static var overlayBackground: Color {
+        Color.black.opacity(0.5)
+    }
+    
+    static var modalBackground: Color {
+        Color(UIColor.systemBackground)
+    }
+}
+
 // MARK: - Auth Models
 
 struct User: Codable {
@@ -1275,11 +1357,11 @@ struct ContentView: View {
                     .disabled(!shouldShowBackButton)
                 }
                 .padding()
-                .background(Color.white)
+                .background(AppTheme.primaryBackground)
                 .overlay(
                     Rectangle()
                         .frame(height: 1)
-                        .foregroundColor(Color.gray.opacity(0.2)),
+                        .foregroundColor(AppTheme.separator),
                     alignment: .bottom
                 )
                 
@@ -1326,7 +1408,7 @@ struct ContentView: View {
                     .padding(.bottom, 20)
                 }
             }
-            .background(Color.white)
+            .background(AppTheme.primaryBackground)
         }
         .onAppear {
             viewModel.setNavigationManager(navigationManager)
@@ -1456,17 +1538,17 @@ struct HomePageView: View {
                         TextEditor(text: $viewModel.description)
                             .frame(minHeight: 120)
                             .padding(20)
-                            .background(Color.gray.opacity(0.05))
+                            .background(AppTheme.secondaryBackground)
                             .cornerRadius(16)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 16)
-                                    .stroke(Color.gray.opacity(0.2), lineWidth: 2)
+                                    .stroke(AppTheme.border, lineWidth: 2)
                             )
                             .disabled(viewModel.loading)
                         
                         if viewModel.description.isEmpty {
                             Text("Enter your question or topic")
-                                .foregroundColor(.gray)
+                                .foregroundColor(AppTheme.tertiaryText)
                                 .padding(.horizontal, 24)
                                 .padding(.vertical, 24)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -1484,10 +1566,10 @@ struct HomePageView: View {
                 }) {
                     Text(viewModel.loading ? "Creating your story..." : "Generate Story")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.black)
+                        .foregroundColor(AppTheme.primaryText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 18)
-                        .background(Color(red: 0.91, green: 0.89, blue: 1.0))
+                        .background(AppTheme.accentColor.opacity(0.2))
                         .cornerRadius(12)
                 }
                 .disabled(viewModel.loading || viewModel.selectedFormats.isEmpty)
@@ -1496,10 +1578,10 @@ struct HomePageView: View {
                 if !viewModel.error.isEmpty {
                     Text(viewModel.error)
                         .font(.system(size: 14))
-                        .foregroundColor(.red)
+                        .foregroundColor(AppTheme.destructiveColor)
                         .padding()
                         .frame(maxWidth: .infinity)
-                        .background(Color.red.opacity(0.1))
+                        .background(AppTheme.destructiveColor.opacity(0.1))
                         .cornerRadius(8)
                 }
                 
@@ -1511,7 +1593,7 @@ struct HomePageView: View {
                     
                     Text("Select the formats you'd like to see for your story")
                         .font(.system(size: 14))
-                        .foregroundColor(.gray)
+                        .foregroundColor(AppTheme.secondaryText)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
@@ -1540,7 +1622,7 @@ struct HomePageView: View {
                 
                 Text("Choose how you'd like to experience your story:")
                     .font(.system(size: 14))
-                    .foregroundColor(.gray)
+                    .foregroundColor(AppTheme.secondaryText)
                 
                 VStack(spacing: 12) {
                     if viewModel.selectedFormats.contains("Text Story") {
@@ -1591,7 +1673,7 @@ struct HomePageView: View {
                 if viewModel.selectedFormats.contains("Comic Book") && viewModel.imageUrls.isEmpty {
                     Text("Comic illustrations are still being created...")
                         .font(.system(size: 14))
-                        .foregroundColor(.gray)
+                        .foregroundColor(AppTheme.secondaryText)
                         .padding()
                 }
             }
@@ -1640,7 +1722,7 @@ struct MyStoriesPageView: View {
                         .scaleEffect(1.5)
                     Text("Loading your stories...")
                         .font(.system(size: 16))
-                        .foregroundColor(.gray)
+                        .foregroundColor(AppTheme.secondaryText)
                         .padding(.top, 16)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1648,7 +1730,7 @@ struct MyStoriesPageView: View {
                 VStack {
                     Text("Error: \(viewModel.error)")
                         .font(.system(size: 16))
-                        .foregroundColor(.red)
+                        .foregroundColor(AppTheme.destructiveColor)
                         .multilineTextAlignment(.center)
                     
                     Button("Try Again") {
@@ -1662,7 +1744,7 @@ struct MyStoriesPageView: View {
                     .foregroundColor(.white)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 12)
-                    .background(Color.blue)
+                    .background(AppTheme.accentColor)
                     .cornerRadius(8)
                     .padding(.top, 16)
                 }
@@ -1677,7 +1759,7 @@ struct MyStoriesPageView: View {
                     
                     Text("Create your first story to see it here!")
                         .font(.system(size: 16))
-                        .foregroundColor(.gray)
+                        .foregroundColor(AppTheme.secondaryText)
                         .multilineTextAlignment(.center)
                     
                     Button("Create Story") {
@@ -1687,7 +1769,7 @@ struct MyStoriesPageView: View {
                     .foregroundColor(.white)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
-                    .background(Color.blue)
+                    .background(AppTheme.accentColor)
                     .cornerRadius(8)
                     .padding(.top, 8)
                 }
@@ -1760,9 +1842,9 @@ struct StoryViewerPageView: View {
                     
                     Text(story.prompt)
                         .font(.system(size: 14))
-                        .foregroundColor(.gray)
+                        .foregroundColor(AppTheme.secondaryText)
                         .padding()
-                        .background(Color.gray.opacity(0.1))
+                        .background(AppTheme.buttonBackground)
                         .cornerRadius(8)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1776,7 +1858,7 @@ struct StoryViewerPageView: View {
                 
                 Text("Select how you'd like to experience this story:")
                     .font(.system(size: 14))
-                    .foregroundColor(.gray)
+                    .foregroundColor(AppTheme.secondaryText)
                 
                 VStack(spacing: 12) {
                     if let formats = story.formats, formats.contains("Text Story") {
@@ -1834,11 +1916,11 @@ struct StoryViewerPageView: View {
                         
                         Text("Your comic book version will be available shortly. Try the text version while you wait!")
                             .font(.system(size: 14))
-                            .foregroundColor(.gray)
+                            .foregroundColor(AppTheme.secondaryText)
                             .multilineTextAlignment(.center)
                     }
                     .padding()
-                    .background(Color.orange.opacity(0.1))
+                    .background(AppTheme.warningColor.opacity(0.1))
                     .cornerRadius(12)
                 }
             }
@@ -1877,7 +1959,7 @@ struct PersonalizationPageView: View {
                 
                 Text("Create a comic-style avatar for your stories")
                     .font(.system(size: 14))
-                    .foregroundColor(.gray)
+                    .foregroundColor(AppTheme.secondaryText)
                     .multilineTextAlignment(.center)
             }
             .padding(.top, 24)
@@ -1886,18 +1968,18 @@ struct PersonalizationPageView: View {
             if !viewModel.error.isEmpty {
                 Text(viewModel.error)
                     .font(.system(size: 14))
-                    .foregroundColor(.red)
+                    .foregroundColor(AppTheme.destructiveColor)
                     .padding()
-                    .background(Color.red.opacity(0.1))
+                    .background(AppTheme.destructiveColor.opacity(0.1))
                     .cornerRadius(8)
             }
             
             if !viewModel.success.isEmpty {
                 Text(viewModel.success)
                     .font(.system(size: 14))
-                    .foregroundColor(.green)
+                    .foregroundColor(AppTheme.successColor)
                     .padding()
-                    .background(Color.green.opacity(0.1))
+                    .background(AppTheme.successColor.opacity(0.1))
                     .cornerRadius(8)
             }
             
@@ -1924,7 +2006,7 @@ struct PersonalizationPageView: View {
                         
                         Text(avatar.traitsDescription)
                             .font(.system(size: 14))
-                            .foregroundColor(.gray)
+                            .foregroundColor(AppTheme.secondaryText)
                             .multilineTextAlignment(.center)
                         
                         // Created date hidden for cleaner UI
@@ -1938,10 +2020,10 @@ struct PersonalizationPageView: View {
                             viewModel.startEditing()
                         }
                         .font(.system(size: 16))
-                        .foregroundColor(.blue)
+                        .foregroundColor(AppTheme.accentColor)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
-                        .background(Color.blue.opacity(0.1))
+                        .background(AppTheme.accentColor.opacity(0.1))
                         .cornerRadius(8)
                         
                         Button("Create New Avatar") {
@@ -1951,7 +2033,7 @@ struct PersonalizationPageView: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
-                        .background(Color.blue)
+                        .background(AppTheme.accentColor)
                         .cornerRadius(8)
                     }
                 }
@@ -1981,14 +2063,14 @@ struct PersonalizationPageView: View {
                                         
                                         Text("Max 10MB • JPG, PNG")
                                             .font(.system(size: 12))
-                                            .foregroundColor(.gray)
+                                            .foregroundColor(AppTheme.tertiaryText)
                                     }
                                     .frame(width: 150, height: 150)
-                                    .background(Color.gray.opacity(0.1))
+                                    .background(AppTheme.buttonBackground)
                                     .cornerRadius(12)
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 12)
-                                            .stroke(Color.gray.opacity(0.3), style: StrokeStyle(lineWidth: 2, dash: [5]))
+                                            .stroke(AppTheme.border, style: StrokeStyle(lineWidth: 2, dash: [5]))
                                     )
                                 }
                             }
@@ -2012,17 +2094,17 @@ struct PersonalizationPageView: View {
                             TextEditor(text: $viewModel.traitsDescription)
                                 .frame(height: 80)
                                 .padding(8)
-                                .background(Color.gray.opacity(0.1))
+                                .background(AppTheme.buttonBackground)
                                 .cornerRadius(8)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 8)
-                                        .stroke(Color.gray.opacity(0.3), lineWidth: 1)
+                                        .stroke(AppTheme.border, lineWidth: 1)
                                 )
                             
                             if viewModel.traitsDescription.isEmpty {
                                 Text("Describe 1-2 personality traits (e.g., funny and creative, brave and kind)")
                                     .font(.system(size: 12))
-                                    .foregroundColor(.gray)
+                                    .foregroundColor(AppTheme.tertiaryText)
                                     .padding(.horizontal, 8)
                                     .padding(.top, -72)
                                     .allowsHitTesting(false)
@@ -2030,7 +2112,7 @@ struct PersonalizationPageView: View {
                             
                             Text("These traits will influence how your avatar appears in stories")
                                 .font(.system(size: 11))
-                                .foregroundColor(.gray)
+                                .foregroundColor(AppTheme.tertiaryText)
                         }
                     }
                     
@@ -2051,7 +2133,7 @@ struct PersonalizationPageView: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(viewModel.loading ? Color.gray : Color.blue)
+                        .background(viewModel.loading ? AppTheme.buttonBackground : AppTheme.accentColor)
                         .cornerRadius(8)
                         .disabled(viewModel.loading || viewModel.avatarName.isEmpty || viewModel.traitsDescription.isEmpty)
                         
@@ -2060,10 +2142,10 @@ struct PersonalizationPageView: View {
                                 viewModel.cancelEditing()
                             }
                             .font(.system(size: 16))
-                            .foregroundColor(.blue)
+                            .foregroundColor(AppTheme.accentColor)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
-                            .background(Color.blue.opacity(0.1))
+                            .background(AppTheme.accentColor.opacity(0.1))
                             .cornerRadius(8)
                         }
                     }
@@ -2094,10 +2176,10 @@ struct PersonalizationPageView: View {
                     }
                 }
                 .font(.system(size: 14))
-                .foregroundColor(.gray)
+                .foregroundColor(AppTheme.secondaryText)
             }
             .padding()
-            .background(Color.gray.opacity(0.05))
+            .background(AppTheme.secondaryBackground)
             .cornerRadius(12)
         }
         .sheet(isPresented: $showingImagePicker) {
@@ -2146,7 +2228,7 @@ struct StoryCardView: View {
                             .foregroundColor(.white)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Color.red)
+                            .background(AppTheme.destructiveColor)
                             .cornerRadius(4)
                     } else if story.status == "IN_PROGRESS" {
                         HStack(spacing: 4) {
@@ -2169,12 +2251,12 @@ struct StoryCardView: View {
                     if story.status == "IN_PROGRESS" {
                         Text("Your magical story is being created... ✨")
                             .font(.system(size: 12))
-                            .foregroundColor(.gray)
+                            .foregroundColor(AppTheme.secondaryText)
                             .italic()
                     } else {
                         Text(String(story.storyContent.prefix(120)) + (story.storyContent.count > 120 ? "..." : ""))
                             .font(.system(size: 12))
-                            .foregroundColor(.gray)
+                            .foregroundColor(AppTheme.secondaryText)
                             .multilineTextAlignment(.leading)
                     }
                 }
@@ -2188,11 +2270,11 @@ struct StoryCardView: View {
                                     .font(.system(size: 12))
                                 Text(format)
                                     .font(.system(size: 10))
-                                    .foregroundColor(.gray)
+                                    .foregroundColor(AppTheme.tertiaryText)
                             }
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Color.gray.opacity(0.1))
+                            .background(AppTheme.buttonBackground)
                             .cornerRadius(4)
                         }
                         
@@ -2204,24 +2286,24 @@ struct StoryCardView: View {
                                     .font(.system(size: 10))
                                 Text("\(imageUrls.count) images")
                                     .font(.system(size: 10))
-                                    .foregroundColor(.gray)
+                                    .foregroundColor(AppTheme.tertiaryText)
                             }
                         }
                         
                         Text("Click to view")
                             .font(.system(size: 10))
-                            .foregroundColor(.blue)
+                            .foregroundColor(AppTheme.accentColor)
                     }
                 }
             }
             .padding()
-            .background(Color.white)
+            .background(AppTheme.primaryBackground)
             .cornerRadius(12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(story.status == "NEW" ? Color.blue : Color.gray.opacity(0.2), lineWidth: story.status == "NEW" ? 2 : 1)
+                    .stroke(story.status == "NEW" ? AppTheme.accentColor : AppTheme.separator, lineWidth: story.status == "NEW" ? 2 : 1)
             )
-            .shadow(color: Color.black.opacity(0.05), radius: 2, x: 0, y: 1)
+            .shadow(color: AppTheme.primaryText.opacity(0.05), radius: 2, x: 0, y: 1)
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -2256,7 +2338,7 @@ struct AvatarFullScreenView: View {
     
     var body: some View {
         ZStack {
-            Color.black
+            AppTheme.overlayBackground
                 .ignoresSafeArea()
             
             VStack(spacing: 20) {
@@ -2268,7 +2350,7 @@ struct AvatarFullScreenView: View {
                             .font(.system(size: 20, weight: .medium))
                             .foregroundColor(.white)
                             .padding(12)
-                            .background(Color.black.opacity(0.5))
+                            .background(AppTheme.overlayBackground)
                             .clipShape(Circle())
                     }
                     .padding()
@@ -2389,7 +2471,7 @@ struct HamburgerMenuView: View {
                                 }
                                 isPresented = false
                             }
-                            .foregroundColor(.red)
+                            .foregroundColor(AppTheme.destructiveColor)
                             
                             Spacer()
                             
@@ -2406,7 +2488,7 @@ struct HamburgerMenuView: View {
                                     }
                                 }
                             }
-                            .foregroundColor(.red)
+                            .foregroundColor(AppTheme.destructiveColor)
                             .font(.system(size: 14))
                             .disabled(isDeleting)
                         }
@@ -2422,7 +2504,7 @@ struct HamburgerMenuView: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(Color.blue)
+                        .background(AppTheme.accentColor)
                         .cornerRadius(8)
                         .padding(.horizontal)
                         
@@ -2431,10 +2513,10 @@ struct HamburgerMenuView: View {
                             isPresented = false
                         }
                         .font(.system(size: 16))
-                        .foregroundColor(.blue)
+                        .foregroundColor(AppTheme.accentColor)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(Color.blue.opacity(0.1))
+                        .background(AppTheme.accentColor.opacity(0.1))
                         .cornerRadius(8)
                         .padding(.horizontal)
                     }
@@ -2497,6 +2579,7 @@ struct HamburgerMenuView: View {
                 Spacer()
             }
             .navigationBarHidden(true)
+            .background(AppTheme.primaryBackground)
             .alert("Delete Account", isPresented: $showDeleteConfirmation) {
                 Button("Cancel", role: .cancel) {
                     showDeleteConfirmation = false
@@ -2600,7 +2683,7 @@ struct MenuItemView: View {
                 
                 Text(title)
                     .font(.system(size: 16))
-                    .foregroundColor(isActive ? .blue : .primary)
+                    .foregroundColor(isActive ? AppTheme.accentColor : AppTheme.primaryText)
                 
                 Spacer()
                 
@@ -2610,7 +2693,7 @@ struct MenuItemView: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color.red)
+                        .background(AppTheme.destructiveColor)
                         .clipShape(Circle())
                 }
             }
@@ -2648,7 +2731,7 @@ struct LoginModalView: View {
                 
                 if !authViewModel.error.isEmpty {
                     Text(authViewModel.error)
-                        .foregroundColor(.red)
+                        .foregroundColor(AppTheme.destructiveColor)
                         .font(.caption)
                 }
                 
@@ -2664,7 +2747,7 @@ struct LoginModalView: View {
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(Color.blue)
+                .background(AppTheme.accentColor)
                 .cornerRadius(10)
                 .disabled(authViewModel.loading || email.isEmpty || password.isEmpty)
                 
@@ -2675,7 +2758,7 @@ struct LoginModalView: View {
                         isPresented = false
                         showSignupModal = true
                     }
-                    .foregroundColor(.blue)
+                    .foregroundColor(AppTheme.accentColor)
                 }
                 
                 Spacer()
@@ -2770,7 +2853,7 @@ struct SignupModalView: View {
                             
                             Button(action: { showPassword.toggle() }) {
                                 Image(systemName: showPassword ? "eye.slash" : "eye")
-                                    .foregroundColor(.gray)
+                                    .foregroundColor(AppTheme.tertiaryText)
                             }
                             .padding(.trailing, 8)
                         }
@@ -2782,7 +2865,7 @@ struct SignupModalView: View {
                                 HStack {
                                     Text("Password Strength: ")
                                         .font(.caption)
-                                        .foregroundColor(.gray)
+                                        .foregroundColor(AppTheme.tertiaryText)
                                     
                                     Text(passwordStrength < 2 ? "Weak" : passwordStrength < 4 ? "Good" : "Strong")
                                         .font(.caption)
@@ -2796,7 +2879,7 @@ struct SignupModalView: View {
                                         Rectangle()
                                             .frame(width: geometry.size.width, height: 4)
                                             .opacity(0.3)
-                                            .foregroundColor(.gray)
+                                            .foregroundColor(AppTheme.tertiaryText)
                                         
                                         Rectangle()
                                             .frame(width: min(CGFloat(passwordStrength) / 4.0 * geometry.size.width, geometry.size.width), height: 4)
@@ -2854,7 +2937,7 @@ struct SignupModalView: View {
                                 }
                             }
                             .padding(12)
-                            .background(Color.gray.opacity(0.1))
+                            .background(AppTheme.buttonBackground)
                             .cornerRadius(8)
                         }
                     }
@@ -2872,7 +2955,7 @@ struct SignupModalView: View {
                             
                             Button(action: { showConfirmPassword.toggle() }) {
                                 Image(systemName: showConfirmPassword ? "eye.slash" : "eye")
-                                    .foregroundColor(.gray)
+                                    .foregroundColor(AppTheme.tertiaryText)
                             }
                             .padding(.trailing, 8)
                         }
@@ -2894,13 +2977,13 @@ struct SignupModalView: View {
                 // Show validation errors or auth errors
                 if !validationError.isEmpty {
                     Text(validationError)
-                        .foregroundColor(.red)
+                        .foregroundColor(AppTheme.destructiveColor)
                         .font(.caption)
                 }
                 
                 if !authViewModel.error.isEmpty {
                     Text(authViewModel.error)
-                        .foregroundColor(.red)
+                        .foregroundColor(AppTheme.destructiveColor)
                         .font(.caption)
                 }
                 
@@ -2937,7 +3020,7 @@ struct SignupModalView: View {
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding()
-                .background(isFormValid && !authViewModel.loading ? Color.blue : Color.gray)
+                .background(isFormValid && !authViewModel.loading ? AppTheme.accentColor : AppTheme.buttonBackground)
                 .cornerRadius(10)
                 .disabled(!isFormValid || authViewModel.loading)
                 
@@ -2948,7 +3031,7 @@ struct SignupModalView: View {
                         isPresented = false
                         showLoginModal = true
                     }
-                    .foregroundColor(.blue)
+                    .foregroundColor(AppTheme.accentColor)
                 }
                 
                 Spacer()
@@ -3079,7 +3162,7 @@ struct ComicStoryView: View {
     var body: some View {
         GeometryReader { fullGeometry in
             ZStack {
-                Color.black.ignoresSafeArea()
+                AppTheme.overlayBackground.ignoresSafeArea()
                 
                 VStack(spacing: 0) {
                     // Header with close button and page indicator
@@ -3101,7 +3184,7 @@ struct ComicStoryView: View {
                                     .font(.system(size: 18, weight: .semibold))
                                     .foregroundColor(.white)
                                     .frame(width: 32, height: 32)
-                                    .background(Color.black.opacity(0.7))
+                                    .background(AppTheme.overlayBackground)
                                     .clipShape(Circle())
                             }
                             .disabled(currentPage == 0)
@@ -3113,7 +3196,7 @@ struct ComicStoryView: View {
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 8)
-                                .background(Color.black.opacity(0.7))
+                                .background(AppTheme.overlayBackground)
                                 .cornerRadius(20)
                             
                             // Next page button
@@ -3122,7 +3205,7 @@ struct ComicStoryView: View {
                                     .font(.system(size: 18, weight: .semibold))
                                     .foregroundColor(.white)
                                     .frame(width: 32, height: 32)
-                                    .background(Color.black.opacity(0.7))
+                                    .background(AppTheme.overlayBackground)
                                     .clipShape(Circle())
                             }
                             .disabled(currentPage == imageUrls.count - 1)
@@ -3177,13 +3260,13 @@ struct ComicStoryView: View {
                             maxWidth: max(availableWidth, 100),
                             maxHeight: max(availableHeight, 100)
                         )
-                        .background(Color.black)
+                        .background(AppTheme.overlayBackground)
                         .clipped()
                         .contentShape(Rectangle())
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.black)
+                .background(AppTheme.overlayBackground)
             }
         }
         }
@@ -3299,9 +3382,9 @@ struct FormatCard: View {
             HStack {
                 Image(systemName: icon)
                     .font(.title2)
-                    .foregroundColor(isSelected ? .white : .blue)
+                    .foregroundColor(isSelected ? .white : AppTheme.accentColor)
                     .frame(width: 50, height: 50)
-                    .background(isSelected ? Color.blue : Color.blue.opacity(0.1))
+                    .background(isSelected ? AppTheme.accentColor : AppTheme.accentColor.opacity(0.1))
                     .cornerRadius(10)
                 
                 VStack(alignment: .leading, spacing: 4) {
@@ -3319,17 +3402,17 @@ struct FormatCard: View {
                 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.blue)
+                        .foregroundColor(AppTheme.accentColor)
                         .font(.title2)
                 }
             }
             .padding()
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(isSelected ? Color.blue.opacity(0.1) : Color.gray.opacity(0.05))
+                    .fill(isSelected ? AppTheme.accentColor.opacity(0.1) : AppTheme.buttonBackground)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
-                            .stroke(isSelected ? Color.blue : Color.gray.opacity(0.2), lineWidth: isSelected ? 2 : 1)
+                            .stroke(isSelected ? AppTheme.accentColor : AppTheme.separator, lineWidth: isSelected ? 2 : 1)
                     )
             )
         }
@@ -3365,10 +3448,10 @@ struct ResultFormatCard: View {
             .padding()
             .background(
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(isAvailable ? Color.blue.opacity(0.1) : Color.gray.opacity(0.05))
+                    .fill(isAvailable ? AppTheme.accentColor.opacity(0.1) : AppTheme.buttonBackground)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
-                            .stroke(isAvailable ? Color.blue : Color.gray.opacity(0.2), lineWidth: 1)
+                            .stroke(isAvailable ? AppTheme.accentColor : AppTheme.separator, lineWidth: 1)
                     )
             )
         }
