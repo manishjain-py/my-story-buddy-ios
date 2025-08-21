@@ -187,6 +187,38 @@ struct MyStory: Codable, Identifiable {
     }
 }
 
+struct PublicStory: Codable, Identifiable {
+    let id: Int
+    let title: String
+    let storyContent: String
+    let prompt: String
+    let imageUrls: [String]?
+    let formats: [String]?
+    let category: String
+    let ageGroup: String
+    let featured: Bool
+    let tags: [String]?
+    let createdAt: String
+    
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case storyContent = "story_content"
+        case prompt
+        case imageUrls = "image_urls"
+        case formats
+        case category
+        case ageGroup = "age_group"
+        case featured
+        case tags
+        case createdAt = "created_at"
+    }
+    
+    // For compatibility with story viewer
+    var source: String { return "public" }
+    var status: String { return "NEW" }
+}
+
 struct Avatar: Codable {
     let avatarName: String
     let traitsDescription: String
@@ -781,6 +813,7 @@ class PersonalizationService: ObservableObject {
 
 enum AppPage: String, CaseIterable {
     case home = "home"
+    case publicStories = "public-stories"
     case myStories = "my-stories"
     case storyViewer = "story-viewer"
     case personalization = "personalization"
@@ -788,6 +821,7 @@ enum AppPage: String, CaseIterable {
     var title: String {
         switch self {
         case .home: return "Storytime"
+        case .publicStories: return "Public Stories"
         case .myStories: return "My Stories"
         case .storyViewer: return "Story"
         case .personalization: return "Personalization"
@@ -797,6 +831,7 @@ enum AppPage: String, CaseIterable {
     var icon: String {
         switch self {
         case .home: return "🏠"
+        case .publicStories: return "🌟"
         case .myStories: return "📖"
         case .storyViewer: return "📚"
         case .personalization: return "🎭"
@@ -826,9 +861,10 @@ class NavigationManager: ObservableObject {
     func goBack() {
         switch currentPage {
         case .storyViewer:
-            currentPage = .myStories
+            // Go back to the page where the story was selected from
+            currentPage = selectedStory?.source == "public" ? .publicStories : .myStories
             selectedStory = nil
-        case .myStories, .personalization:
+        case .publicStories, .myStories, .personalization:
             currentPage = .home
         case .home:
             break
@@ -1119,6 +1155,133 @@ class StoryViewModel: ObservableObject {
     }
 }
 
+// MARK: - Public Stories Service
+
+class PublicStoriesService: ObservableObject {
+    static let shared = PublicStoriesService()
+    
+    private let baseURL = "https://www.mystorybuddy.com/api"
+    private let session = URLSession.shared
+    
+    private init() {}
+    
+    enum PublicStoriesError: Error {
+        case invalidURL
+        case invalidResponse
+        case decodingError
+        case networkError(String)
+    }
+    
+    func fetchPublicStories(page: Int = 1, limit: Int = 20, category: String? = nil, featured: Bool? = nil) async throws -> PublicStoriesResponse {
+        var urlComponents = URLComponents(string: "\(baseURL)/public-stories")!
+        
+        var queryItems: [URLQueryItem] = []
+        queryItems.append(URLQueryItem(name: "page", value: String(page)))
+        queryItems.append(URLQueryItem(name: "limit", value: String(limit)))
+        
+        if let category = category {
+            queryItems.append(URLQueryItem(name: "category", value: category))
+        }
+        
+        if let featured = featured {
+            queryItems.append(URLQueryItem(name: "featured", value: String(featured)))
+        }
+        
+        urlComponents.queryItems = queryItems
+        
+        guard let url = urlComponents.url else {
+            throw PublicStoriesError.invalidURL
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let (data, response) = try await session.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              httpResponse.statusCode == 200 else {
+            throw PublicStoriesError.invalidResponse
+        }
+        
+        do {
+            let publicStoriesResponse = try JSONDecoder().decode(PublicStoriesResponse.self, from: data)
+            return publicStoriesResponse
+        } catch {
+            print("Decoding error: \(error)")
+            throw PublicStoriesError.decodingError
+        }
+    }
+}
+
+struct PublicStoriesResponse: Codable {
+    let stories: [PublicStory]
+    let totalCount: Int
+    let currentPage: Int
+    let totalPages: Int
+    let categories: [String]
+    
+    enum CodingKeys: String, CodingKey {
+        case stories
+        case totalCount = "total_count"
+        case currentPage = "current_page"
+        case totalPages = "total_pages"
+        case categories
+    }
+}
+
+// MARK: - Public Stories View Model
+
+@MainActor
+class PublicStoriesViewModel: ObservableObject {
+    @Published var stories: [PublicStory] = []
+    @Published var loading = false
+    @Published var error = ""
+    @Published var categories: [String] = []
+    @Published var selectedCategory: String? = nil
+    @Published var showOnlyFeatured = false
+    @Published var currentPage = 1
+    @Published var totalPages = 1
+    
+    private let publicStoriesService = PublicStoriesService.shared
+    
+    func fetchPublicStories() async {
+        loading = true
+        error = ""
+        
+        do {
+            let response = try await publicStoriesService.fetchPublicStories(
+                page: currentPage,
+                category: selectedCategory,
+                featured: showOnlyFeatured ? true : nil
+            )
+            self.stories = response.stories
+            self.categories = response.categories
+            self.totalPages = response.totalPages
+        } catch {
+            self.error = "Failed to fetch public stories: \(error.localizedDescription)"
+        }
+        
+        loading = false
+    }
+    
+    func selectCategory(_ category: String?) {
+        selectedCategory = category
+        currentPage = 1
+        Task {
+            await fetchPublicStories()
+        }
+    }
+    
+    func toggleFeatured() {
+        showOnlyFeatured.toggle()
+        currentPage = 1
+        Task {
+            await fetchPublicStories()
+        }
+    }
+}
+
 // MARK: - My Stories View Model
 
 @MainActor
@@ -1322,6 +1485,7 @@ struct ContentView: View {
     @StateObject private var authViewModel = AuthViewModel()
     @StateObject private var navigationManager = NavigationManager()
     @StateObject private var myStoriesViewModel = MyStoriesViewModel()
+    @StateObject private var publicStoriesViewModel = PublicStoriesViewModel()
     @StateObject private var personalizationViewModel = PersonalizationViewModel()
     @State private var showTextModal = false
     @State private var showComicModal = false
@@ -1384,6 +1548,8 @@ struct ContentView: View {
                                     showComingSoon(format: format)
                                 }
                             )
+                        case .publicStories:
+                            PublicStoriesPageView(viewModel: publicStoriesViewModel, navigationManager: navigationManager)
                         case .myStories:
                             MyStoriesPageView(viewModel: myStoriesViewModel, authViewModel: authViewModel, navigationManager: navigationManager)
                         case .storyViewer:
@@ -1705,6 +1871,245 @@ func getFormatIcon(_ format: StoryFormat) -> String {
         return "play.rectangle"
     case .audioStory:
         return "headphones"
+    }
+}
+
+struct PublicStoriesPageView: View {
+    @ObservedObject var viewModel: PublicStoriesViewModel
+    @ObservedObject var navigationManager: NavigationManager
+    
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                // Header
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Public Stories")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundColor(AppTheme.primaryText)
+                        
+                        Text("Discover amazing stories shared by everyone")
+                            .font(.system(size: 16))
+                            .foregroundColor(AppTheme.secondaryText)
+                    }
+                    
+                    Spacer()
+                }
+                .padding(.horizontal)
+                .padding(.top, 20)
+                
+                // Filter Section
+                VStack(spacing: 12) {
+                    // Featured toggle
+                    HStack {
+                        Button(action: { 
+                            viewModel.toggleFeatured()
+                        }) {
+                            HStack(spacing: 8) {
+                                Image(systemName: viewModel.showOnlyFeatured ? "star.fill" : "star")
+                                    .foregroundColor(viewModel.showOnlyFeatured ? .yellow : AppTheme.secondaryText)
+                                Text("Featured Stories")
+                                    .font(.system(size: 16, weight: .medium))
+                                    .foregroundColor(viewModel.showOnlyFeatured ? AppTheme.primaryText : AppTheme.secondaryText)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(viewModel.showOnlyFeatured ? AppTheme.accentColor.opacity(0.1) : AppTheme.buttonBackground)
+                            .cornerRadius(20)
+                        }
+                        
+                        Spacer()
+                    }
+                    
+                    // Category filters
+                    if !viewModel.categories.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 8) {
+                                Button("All") {
+                                    viewModel.selectCategory(nil)
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 8)
+                                .background(viewModel.selectedCategory == nil ? AppTheme.accentColor : AppTheme.buttonBackground)
+                                .foregroundColor(viewModel.selectedCategory == nil ? .white : AppTheme.primaryText)
+                                .cornerRadius(20)
+                                
+                                ForEach(viewModel.categories, id: \.self) { category in
+                                    Button(category) {
+                                        viewModel.selectCategory(category)
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 8)
+                                    .background(viewModel.selectedCategory == category ? AppTheme.accentColor : AppTheme.buttonBackground)
+                                    .foregroundColor(viewModel.selectedCategory == category ? .white : AppTheme.primaryText)
+                                    .cornerRadius(20)
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+                    }
+                }
+                .padding(.bottom, 8)
+                
+                // Stories Grid
+                if viewModel.loading {
+                    ProgressView("Loading public stories...")
+                        .frame(maxWidth: .infinity, minHeight: 200)
+                } else if !viewModel.error.isEmpty {
+                    VStack(spacing: 12) {
+                        Text("Error")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundColor(AppTheme.primaryText)
+                        
+                        Text(viewModel.error)
+                            .font(.system(size: 16))
+                            .foregroundColor(AppTheme.secondaryText)
+                            .multilineTextAlignment(.center)
+                        
+                        Button("Retry") {
+                            Task {
+                                await viewModel.fetchPublicStories()
+                            }
+                        }
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .background(AppTheme.accentColor)
+                        .cornerRadius(8)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 200)
+                } else if viewModel.stories.isEmpty {
+                    VStack(spacing: 12) {
+                        Text("No Stories Found")
+                            .font(.system(size: 20, weight: .semibold))
+                            .foregroundColor(AppTheme.primaryText)
+                        
+                        Text("No public stories match your current filters.")
+                            .font(.system(size: 16))
+                            .foregroundColor(AppTheme.secondaryText)
+                            .multilineTextAlignment(.center)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 200)
+                } else {
+                    LazyVGrid(columns: [
+                        GridItem(.flexible(), spacing: 8),
+                        GridItem(.flexible(), spacing: 8)
+                    ], spacing: 16) {
+                        ForEach(viewModel.stories) { story in
+                            PublicStoryCardView(story: story) {
+                                // Convert PublicStory to MyStory for compatibility
+                                let myStory = MyStory(
+                                    id: story.id,
+                                    title: story.title,
+                                    prompt: story.prompt,
+                                    storyContent: story.storyContent,
+                                    imageUrls: story.imageUrls,
+                                    formats: story.formats,
+                                    status: story.status,
+                                    createdAt: story.createdAt
+                                )
+                                navigationManager.selectStory(myStory)
+                            }
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+                
+                Spacer(minLength: 100)
+            }
+        }
+        .refreshable {
+            await viewModel.fetchPublicStories()
+        }
+        .task {
+            if viewModel.stories.isEmpty {
+                await viewModel.fetchPublicStories()
+            }
+        }
+    }
+}
+
+struct PublicStoryCardView: View {
+    let story: PublicStory
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: 8) {
+                // Image
+                if let imageUrls = story.imageUrls, !imageUrls.isEmpty {
+                    AsyncImage(url: URL(string: imageUrls[0])) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Rectangle()
+                            .fill(AppTheme.inputBackground)
+                            .overlay(
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                            )
+                    }
+                    .frame(height: 120)
+                    .clipped()
+                    .cornerRadius(8)
+                } else {
+                    Rectangle()
+                        .fill(AppTheme.inputBackground)
+                        .frame(height: 120)
+                        .cornerRadius(8)
+                        .overlay(
+                            Text("📚")
+                                .font(.system(size: 32))
+                        )
+                }
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    // Category and featured badge
+                    HStack {
+                        Text(story.category)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(AppTheme.accentColor)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(AppTheme.accentColor.opacity(0.1))
+                            .cornerRadius(12)
+                        
+                        if story.featured {
+                            Text("⭐")
+                                .font(.system(size: 12))
+                        }
+                        
+                        Spacer()
+                    }
+                    
+                    // Title
+                    Text(story.title)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(AppTheme.primaryText)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    
+                    // Age group
+                    Text("Ages \(story.ageGroup)")
+                        .font(.system(size: 12))
+                        .foregroundColor(AppTheme.secondaryText)
+                }
+                .padding(.horizontal, 4)
+                
+                Spacer()
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(8)
+            .background(AppTheme.cardBackground)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(AppTheme.border, lineWidth: 1)
+            )
+            .cornerRadius(12)
+        }
+        .buttonStyle(PlainButtonStyle())
     }
 }
 
@@ -2544,6 +2949,16 @@ struct HamburgerMenuView: View {
                                 viewModel.reset()
                             }
                             navigationManager.goToPage(.home)
+                            isPresented = false
+                        }
+                    )
+                    
+                    MenuItemView(
+                        icon: "🌟",
+                        title: "Public Stories",
+                        isActive: navigationManager.currentPage == .publicStories,
+                        action: {
+                            navigationManager.goToPage(.publicStories)
                             isPresented = false
                         }
                     )
