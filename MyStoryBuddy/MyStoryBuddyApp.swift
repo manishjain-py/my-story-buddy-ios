@@ -185,6 +185,9 @@ struct MyStory: Codable, Identifiable {
         case status
         case createdAt = "created_at"
     }
+    
+    // For compatibility with story viewer navigation
+    var source: String { return "user" }
 }
 
 struct PublicStory: Codable, Identifiable {
@@ -2009,7 +2012,7 @@ struct PublicStoriesPageView: View {
                                     status: story.status,
                                     createdAt: story.createdAt
                                 )
-                                navigationManager.selectStory(myStory)
+                                navigationManager.goToStoryViewer(story: myStory)
                             }
                         }
                     }
