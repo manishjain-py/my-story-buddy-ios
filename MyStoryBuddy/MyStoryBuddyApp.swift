@@ -199,7 +199,7 @@ struct PublicStory: Codable, Identifiable {
     let formats: [String]?
     let category: String
     let ageGroup: String
-    let featured: Bool
+    let featured: Int
     let tags: [String]?
     let createdAt: String
     
@@ -1202,16 +1202,33 @@ class PublicStoriesService: ObservableObject {
         
         let (data, response) = try await session.data(for: request)
         
-        guard let httpResponse = response as? HTTPURLResponse,
-              httpResponse.statusCode == 200 else {
+        guard let httpResponse = response as? HTTPURLResponse else {
+            print("PublicStoriesService: Invalid response type")
+            throw PublicStoriesError.invalidResponse
+        }
+        
+        print("PublicStoriesService: Response status code: \(httpResponse.statusCode)")
+        
+        guard httpResponse.statusCode == 200 else {
+            let responseString = String(data: data, encoding: .utf8) ?? "Unable to decode response"
+            print("PublicStoriesService: HTTP error \(httpResponse.statusCode): \(responseString)")
             throw PublicStoriesError.invalidResponse
         }
         
         do {
+            // Print raw response for debugging
+            if let responseString = String(data: data, encoding: .utf8) {
+                print("PublicStoriesService: Raw response: \(responseString.prefix(500))")
+            }
+            
             let publicStoriesResponse = try JSONDecoder().decode(PublicStoriesResponse.self, from: data)
+            print("PublicStoriesService: Successfully decoded \(publicStoriesResponse.stories.count) stories")
             return publicStoriesResponse
         } catch {
-            print("Decoding error: \(error)")
+            print("PublicStoriesService: Decoding error: \(error)")
+            if let decodingError = error as? DecodingError {
+                print("PublicStoriesService: Detailed decoding error: \(decodingError)")
+            }
             throw PublicStoriesError.decodingError
         }
     }
@@ -1220,15 +1237,11 @@ class PublicStoriesService: ObservableObject {
 struct PublicStoriesResponse: Codable {
     let stories: [PublicStory]
     let totalCount: Int
-    let currentPage: Int
-    let totalPages: Int
     let categories: [String]
     
     enum CodingKeys: String, CodingKey {
         case stories
         case totalCount = "total_count"
-        case currentPage = "current_page"
-        case totalPages = "total_pages"
         case categories
     }
 }
@@ -1244,28 +1257,31 @@ class PublicStoriesViewModel: ObservableObject {
     @Published var selectedCategory: String? = nil
     @Published var showOnlyFeatured = false
     @Published var currentPage = 1
-    @Published var totalPages = 1
     
     private let publicStoriesService = PublicStoriesService.shared
     
     func fetchPublicStories() async {
+        print("PublicStoriesViewModel: Starting to fetch stories...")
         loading = true
         error = ""
         
         do {
+            print("PublicStoriesViewModel: Calling service with page=\(currentPage), category=\(selectedCategory ?? "nil"), featured=\(showOnlyFeatured ? "true" : "nil")")
             let response = try await publicStoriesService.fetchPublicStories(
                 page: currentPage,
                 category: selectedCategory,
                 featured: showOnlyFeatured ? true : nil
             )
+            print("PublicStoriesViewModel: Received \(response.stories.count) stories and \(response.categories.count) categories")
             self.stories = response.stories
             self.categories = response.categories
-            self.totalPages = response.totalPages
         } catch {
+            print("PublicStoriesViewModel: Error fetching stories: \(error)")
             self.error = "Failed to fetch public stories: \(error.localizedDescription)"
         }
         
         loading = false
+        print("PublicStoriesViewModel: Finished fetching, loading=\(loading), storiesCount=\(stories.count)")
     }
     
     func selectCategory(_ category: String?) {
@@ -2079,7 +2095,7 @@ struct PublicStoryCardView: View {
                             .background(AppTheme.accentColor.opacity(0.1))
                             .cornerRadius(12)
                         
-                        if story.featured {
+                        if story.featured == 1 {
                             Text("⭐")
                                 .font(.system(size: 12))
                         }
